@@ -1,0 +1,160 @@
+Des-ai-N Source-Available Non-Commercial License v1.0
+Copyright (c) 2026 mdluex and contributors
+All rights reserved.
+
+================================================================================
+1. DEFINITIONS
+================================================================================
+
+"Software" means the Des-ai-N source code, documentation, prompts, templates,
+configuration files, and any other content contained in this repository.
+
+"You" means the individual or legal entity exercising permissions granted by
+this License.
+
+"Non-Commercial Use" means use of the Software for personal projects,
+education, academic research, evaluation, experimentation, hobby work, or any
+other purpose that is NOT Commercial Use.
+
+"Commercial Use" means any use of the Software, in whole or in part, that is
+primarily intended for or directed toward commercial advantage, monetary
+compensation, or business operations. Examples of Commercial Use include but
+are not limited to:
+
+  (a) Using the Software to produce designs, assets, or deliverables that are
+      sold, licensed, advertised, or otherwise monetised — directly or
+      indirectly.
+  (b) Using the Software to perform paid client work, freelance services, or
+      agency work.
+  (c) Bundling, embedding, or integrating the Software into a paid product,
+      service, SaaS offering, or commercial pipeline.
+  (d) Internal use of the Software by a for-profit organisation as part of
+      its commercial operations (excluding short-term evaluation of up to
+      30 days).
+  (e) Reselling, sublicensing, or redistributing the Software for a fee.
+
+"Contribution" means any code, documentation, design, or other material that
+You intentionally submit to the Software's official repository.
+
+================================================================================
+2. GRANT — NON-COMMERCIAL USE
+================================================================================
+
+Subject to the terms of this License, the copyright holder grants You a
+worldwide, royalty-free, non-exclusive, non-transferable license to use,
+copy, modify, and distribute the Software solely for Non-Commercial Use,
+provided that:
+
+  (a) You retain this License notice and the copyright notice in all copies
+      and substantial portions of the Software.
+  (b) Any modified version You distribute is also distributed under this
+      License and clearly marked as modified.
+  (c) You do not remove or obscure attribution to the original authors.
+
+================================================================================
+3. COMMERCIAL USE — PRIOR WRITTEN PERMISSION REQUIRED
+================================================================================
+
+Commercial Use of the Software is NOT permitted under this License.
+
+If You wish to use the Software for any Commercial Use, You MUST first
+obtain written permission from the copyright holder and, where applicable,
+enter into a separate commercial license agreement.
+
+To request commercial-use permission, contact the maintainer by:
+
+  (1) Opening a GitHub issue at
+      https://github.com/mdluex/DES.ai.N/issues
+      with the title prefix "[Commercial License Request]" describing
+      your intended use, organisation, scale, and deployment context; OR
+
+  (2) Contacting the maintainer directly via the contact methods listed
+      on the GitHub profile at https://github.com/mdluex
+
+Using the Software for Commercial Use without prior written permission is
+a material breach of this License and automatically terminates all rights
+granted to You under Section 2.
+
+================================================================================
+4. CONTRIBUTIONS
+================================================================================
+
+By submitting a Contribution to this project, You:
+
+  (a) Represent that You have the right to submit the Contribution.
+  (b) Grant the copyright holder a perpetual, worldwide, non-exclusive,
+      royalty-free, irrevocable license to use, reproduce, modify, prepare
+      derivative works of, publicly display, publicly perform, sublicense,
+      and distribute Your Contribution as part of the Software.
+  (c) Agree that Your Contribution may be relicensed by the copyright
+      holder under separate commercial license agreements pursuant to
+      Section 3.
+  (d) Retain copyright over Your Contribution, but acknowledge that the
+      Software as a whole is licensed under the terms of this License.
+
+================================================================================
+5. THIRD-PARTY SERVICES
+================================================================================
+
+Des-ai-N integrates with the following third-party services, each governed
+by its own terms of service. Use of those services through the Software is
+at Your own risk and must comply with their respective terms:
+
+  * Adobe Photoshop  — https://www.adobe.com/legal/terms.html
+  * LM Studio        — https://lmstudio.ai/
+  * Unsplash         — https://unsplash.com/terms
+
+================================================================================
+6. NO TRADEMARK LICENSE
+================================================================================
+
+This License does not grant permission to use the trade names, trademarks,
+service marks, or product names of the copyright holder, except as required
+for reasonable and customary use in describing the origin of the Software
+and reproducing the content of this License.
+
+================================================================================
+7. DISCLAIMER OF WARRANTY
+================================================================================
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, NONINFRINGEMENT, AND TITLE. THE ENTIRE
+RISK ARISING OUT OF USE OR PERFORMANCE OF THE SOFTWARE REMAINS WITH YOU.
+
+================================================================================
+8. LIMITATION OF LIABILITY
+================================================================================
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THE SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+================================================================================
+9. TERMINATION
+================================================================================
+
+This License terminates automatically if You breach any of its terms,
+including any unauthorised Commercial Use. Upon termination, You must
+cease all use of the Software and destroy any copies in your possession,
+except where law permits otherwise. Sections 4 (Contributions),
+5 (Third-Party Services), 6, 7, 8, and 10 survive termination.
+
+================================================================================
+10. MISCELLANEOUS
+================================================================================
+
+This License represents the complete agreement concerning the subject
+matter hereof. If any provision of this License is held to be
+unenforceable, such provision shall be reformed only to the extent
+necessary to make it enforceable. This License shall be governed by the
+laws applicable in the maintainer's jurisdiction, without regard to its
+conflict-of-law provisions.
+
+================================================================================
+END OF LICENSE
+================================================================================

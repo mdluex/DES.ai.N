@@ -1,0 +1,5 @@
+import os
+
+UNSPLASH_KEY = 'Xuiob-DrX_422D7_BE4wjJWCMG19TxUCMREeBJFVV_8'
+DEFAULT_API_URL = "http://localhost:1234/v1"
+DEFAULT_API_KEY = "sk-lm-OsYvHVHz:G3IQqktjukZA0GMyviOc"

@@ -1,3 +1,34 @@
+# --- Project working folders ---
 /output
 /templates
-/__pycache__
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Photoshop / inspector output ---
+*.inspect.json
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS noise ---
+Thumbs.db
+.DS_Store
+
+# --- Local secrets (do NOT commit) ---
+.env
+.env.local

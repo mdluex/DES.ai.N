@@ -31,8 +31,27 @@
 
 ---
 
+## 🎬 Demo
+
+See Des-ai-N in action — the AI takes a prompt, opens a Photoshop template, edits
+text, swaps imagery, runs Vision QA, and exports a finished design:
+
+<p align="center">
+  <video src="https://github.com/mdluex/DES.ai.N/raw/main/explainer.mp4" controls muted playsinline width="720">
+    Your browser doesn't support embedded video.
+    <a href="explainer.mp4">Download the explainer video</a>
+  </video>
+</p>
+
+<p align="center">
+  <i>▶ If the video doesn't load above, <a href="https://github.com/mdluex/DES.ai.N/raw/main/explainer.mp4">click here to watch / download it</a>.</i>
+</p>
+
+---
+
 ## 📖 Table of Contents
 
+- [Demo](#-demo)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Quick Start](#-quick-start)
@@ -85,15 +104,36 @@ git clone https://github.com/mdluex/DES.ai.N.git
 cd DES.ai.N
 ```
 
+> Prefer downloading the zip? That works too — just note that `update.bat`
+> needs a real git checkout to pull updates.
+
 ### 2. Run the launcher
 
 Double-click **`run.bat`** — it will:
 - ✅ Check that Python is installed
-- ✅ Automatically install all dependencies (`PyQt5`, `openai`, `requests`, `pywin32`)
+- ✅ Create an isolated **`.venv`** virtual environment on first run (one-time)
+- ✅ Install all dependencies (`PyQt5`, `openai`, `requests`, `pywin32`) **inside** the venv
 - ✅ Create `templates/` and `output/` folders if missing
-- ✅ Launch the application
+- ✅ Launch the application using the venv's Python
 
-### 3. Configure (first time only)
+> The virtual environment lives in a `.venv` folder next to `run.bat`. Your
+> system Python stays untouched. Delete `.venv` at any time to reset the
+> environment — `run.bat` will rebuild it on the next launch.
+
+### 3. Keep it up to date
+
+Whenever you want the latest features and fixes from GitHub, double-click
+**`update.bat`** — it will:
+- ✅ Verify git is installed
+- ✅ Fetch and fast-forward your local copy to the latest commits from `main`
+- ✅ Refresh dependencies inside the `.venv`
+- ✅ Tell you exactly what to do if there's a conflict with local changes
+
+If `update.bat` reports that the folder isn't a git repository (typical when
+you downloaded the zip), follow the on-screen instructions to either re-clone
+or link the folder to the remote.
+
+### 4. Configure (first time only)
 
 Open the **Settings** tab and set:
 
@@ -105,7 +145,7 @@ Open the **Settings** tab and set:
 | **Output Folder** | Where finished designs are exported |
 | **Save Source PSD** | Check this to also save `.psd` files alongside the PNGs |
 
-### 4. Start designing
+### 5. Start designing
 
 Switch to the **AI Workspace** tab and type a prompt:
 
@@ -131,9 +171,12 @@ The AI will:
 ```
 V13/
 ├── main.py                  # Entry point — launches UI + backend
-├── run.bat                  # One-click launcher with auto-install
+├── run.bat                  # One-click launcher (creates .venv, installs deps, launches)
+├── update.bat               # Pulls latest from GitHub and refreshes the .venv
 ├── requirements.txt         # Python dependencies
 ├── theme.qss                # Dark UI stylesheet
+├── explainer.mp4            # Walkthrough demo video
+├── LICENSE                  # Source-Available Non-Commercial license
 │
 ├── core/
 │   ├── ai_agent.py          # AI brain — LLM reasoning, vision QA, tool execution
@@ -145,11 +188,13 @@ V13/
 │
 ├── utils/
 │   ├── config.py            # API keys and defaults
-│   ├── inspect_psd.py       # CLI utility — dumps a PSD's design DNA to JSON
+│   ├── inspect_psd.py       # CLI utility — dumps a PSD/PSB's design DNA to JSON
+│   ├── templates.py         # PSD/PSB filename resolution helpers
 │   └── unsplash.py          # Unsplash image downloader
 │
 ├── templates/               # Place your .psd / .psb templates here
-└── output/                  # Finished designs are saved here
+├── output/                  # Finished designs are saved here
+└── .venv/                   # Auto-created by run.bat (isolated dependencies)
 ```
 
 ---

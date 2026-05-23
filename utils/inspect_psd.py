@@ -1,14 +1,19 @@
 """
-PSD Inspector — Opens a PSD via Photoshop COM and extracts every layer's
-typography, color, and geometry into a structured JSON report.
+Photoshop Template Inspector — Opens a .psd or .psb via Photoshop COM and
+extracts every layer's typography, color, and geometry into a structured
+JSON report.
+
+Both .psd (standard Photoshop document) and .psb ("Photoshop Big" — used
+for documents larger than 30,000 px or 2 GB) are supported transparently.
 
 Usage:
     python -m utils.inspect_psd "templates\\FIGO Ride hailing app - Social media post.psd"
+    python -m utils.inspect_psd "templates\\Mutqan Ramadan Banner.psb"
     python -m utils.inspect_psd                  # defaults to FIGO template
 
 Output:
     Prints a human-readable summary to stdout AND writes a JSON file next to
-    the source PSD with the same basename + ".inspect.json".
+    the source PSD/PSB with the same basename + ".inspect.json".
 """
 import os
 import sys
@@ -23,6 +28,7 @@ except Exception:
     pass
 
 from core.photoshop_client import PhotoshopClient
+from utils.templates import is_photoshop_template
 
 
 def _safe(getter, default=None):
@@ -218,6 +224,11 @@ def main():
     if not os.path.exists(target):
         print(f"[ERROR] File not found: {target}")
         sys.exit(1)
+
+    if not is_photoshop_template(target):
+        print(f"[ERROR] Unsupported file type: {target}")
+        print("       Only .psd and .psb files can be inspected.")
+        sys.exit(2)
 
     inspect_psd(target)
 

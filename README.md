@@ -54,7 +54,7 @@
 | Feature | Description |
 |---|---|
 | **Chat-First UI** | Modern dark-themed interface with real-time chat bubbles. Talk to the AI like a creative partner. |
-| **Template Intelligence** | Automatically finds and opens matching PSD templates from your library based on semantic similarity. |
+| **Template Intelligence** | Automatically finds and opens matching `.psd` and `.psb` (large-document) templates from your library based on semantic similarity. |
 | **Deep Vision Analysis** | On first open, the AI visually breaks down the template — locating headlines, CTAs, shapes, and fonts — before making any edits. |
 | **Reference Image Recreation** | Upload any design and the AI decomposes it into editable layers (text, shapes, objects) and rebuilds it in Photoshop with pixel-accurate coordinates. |
 | **Vision QA Loop** | Before saving, an internal Art Director inspects the design up to 4 rounds, checking for cropped text, overflow, contrast issues, and auto-fixes them. |
@@ -148,7 +148,7 @@ V13/
 │   ├── inspect_psd.py       # CLI utility — dumps a PSD's design DNA to JSON
 │   └── unsplash.py          # Unsplash image downloader
 │
-├── templates/               # Place your .psd templates here
+├── templates/               # Place your .psd / .psb templates here
 └── output/                  # Finished designs are saved here
 ```
 
@@ -185,17 +185,29 @@ The AI agent has access to these Photoshop operations:
 
 ## 🔬 Template Inspector
 
-The repo ships with a CLI utility that opens any PSD via Photoshop COM and prints
-its design DNA (canvas size, fonts, colors, layer hierarchy, text bounds):
+The repo ships with a CLI utility that opens any `.psd` or `.psb` via Photoshop COM
+and prints its design DNA (canvas size, fonts, colors, layer hierarchy, text bounds):
 
 ```bash
 python -m utils.inspect_psd "templates\FIGO Ride hailing app - Social media post.psd"
+python -m utils.inspect_psd "templates\Mutqan Ramadan Banner.psb"
 ```
 
-It writes a sibling `*.inspect.json` file next to the PSD with every layer's
-typography, fill color, bounds, blend mode, and group hierarchy. This is useful
-for mining patterns out of professional templates and feeding the system prompt
-with proven design ratios.
+It writes a sibling `*.inspect.json` file next to the source file with every
+layer's typography, fill color, bounds, blend mode, and group hierarchy. This is
+useful for mining patterns out of professional templates and feeding the system
+prompt with proven design ratios.
+
+### About `.psb` (Photoshop Big) files
+
+Des-ai-N treats `.psb` files as first-class templates. PSB is Photoshop's
+"large-document" format for files that exceed the PSD limits (over 30,000 px on
+either axis or larger than 2 GB). The agent will automatically:
+
+- Detect `.psb` files when listing the `templates/` folder.
+- Open them transparently when you ask (e.g. *"open the Mutqan banner"*).
+- Save edited copies back as `.psb` instead of `.psd` when the canvas is too
+  large for the PSD format.
 
 ---
 

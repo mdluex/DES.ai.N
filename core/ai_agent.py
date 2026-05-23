@@ -5,6 +5,11 @@ import base64
 import tempfile
 from openai import OpenAI
 from utils.unsplash import get_image_from_unsplash
+from utils.templates import (
+    list_templates,
+    resolve_template_path,
+    is_photoshop_template,
+)
 
 
 class DesignAgent:
@@ -40,7 +45,7 @@ class DesignAgent:
 
     def get_tools(self):
         return [
-            {"type":"function","function":{"name":"open_template","description":"Open an existing PSD template from the library.","parameters":{"type":"object","properties":{"filename":{"type":"string","description":"Name of the .psd file"}},"required":["filename"]}}},
+            {"type":"function","function":{"name":"open_template","description":"Open an existing Photoshop template from the library. Both .psd and .psb (Photoshop Big) formats are supported. The filename may be passed with or without an extension — if no extension is given, the agent will try .psd first then .psb. Substring matches are also accepted (e.g. 'figo' matches 'FIGO Ride hailing app - Social media post.psd').","parameters":{"type":"object","properties":{"filename":{"type":"string","description":"Name of the template file (.psd or .psb), with or without extension."}},"required":["filename"]}}},
             {"type":"function","function":{"name":"create_canvas","description":"Create a new blank Photoshop canvas.","parameters":{"type":"object","properties":{"width":{"type":"integer"},"height":{"type":"integer"},"filename":{"type":"string"}},"required":["width","height","filename"]}}},
             {"type":"function","function":{"name":"save_document","description":"Export the current design as PNG (and PSD if enabled). Does NOT close the document.","parameters":{"type":"object","properties":{"filename":{"type":"string","description":"Base filename without extension"}},"required":["filename"]}}},
             {"type":"function","function":{"name":"close_document","description":"Close the current document WITHOUT saving. Only use when the user asks to close.","parameters":{"type":"object","properties":{}}}},
@@ -466,29 +471,40 @@ class DesignAgent:
 
                     # ─── open_template ───────────────────────────────
                     if fname == "open_template":
-                        filename = args.get("filename", "")
-                        if filename and not filename.lower().endswith(".psd"):
-                            filename += ".psd"
-                        result = self.ps_client.open_document(
-                            os.path.join(self.templates_folder, filename)
+                        requested = args.get("filename", "")
+                        resolved = resolve_template_path(
+                            self.templates_folder, requested
                         )
-                        if result.startswith("Document opened"):
-                            ctx = self.ps_client.get_layer_context()
-                            # Deep vision – only once per unique template
-                            if filename not in self.template_cache:
-                                _, b64 = self._capture_temp_preview()
-                                if b64:
-                                    self.template_cache[filename] = self.analyze_template(b64, ctx)
-                                else:
-                                    self.template_cache[filename] = "Visual analysis unavailable."
-                            analysis = self.template_cache[filename]
-                            # Use the human-readable LAYER MAP (much easier for the LLM
-                            # to parse than a raw JSON dump of the layer tree).
-                            layer_map = self._format_layer_map(ctx)
-                            result += (
-                                f"\n\n--- Deep Visual Breakdown ---\n{analysis}"
-                                f"\n\n--- {layer_map}"
+                        if not resolved:
+                            available = list_templates(self.templates_folder)
+                            result = (
+                                f"Error: template '{requested}' not found. "
+                                f"Supported formats are .psd and .psb. "
+                                f"Available templates: {available or '(none)'}"
                             )
+                        else:
+                            filename = os.path.basename(resolved)
+                            result = self.ps_client.open_document(resolved)
+                            if result.startswith("Document opened"):
+                                ext = os.path.splitext(filename)[1].lower()
+                                if ext == ".psb":
+                                    result += " (Large-document .psb format detected.)"
+                                ctx = self.ps_client.get_layer_context()
+                                # Deep vision – only once per unique template
+                                if filename not in self.template_cache:
+                                    _, b64 = self._capture_temp_preview()
+                                    if b64:
+                                        self.template_cache[filename] = self.analyze_template(b64, ctx)
+                                    else:
+                                        self.template_cache[filename] = "Visual analysis unavailable."
+                                analysis = self.template_cache[filename]
+                                # Use the human-readable LAYER MAP (much easier for the LLM
+                                # to parse than a raw JSON dump of the layer tree).
+                                layer_map = self._format_layer_map(ctx)
+                                result += (
+                                    f"\n\n--- Deep Visual Breakdown ---\n{analysis}"
+                                    f"\n\n--- {layer_map}"
+                                )
 
                     # ─── create_canvas ────────────────────────────────
                     elif fname == "create_canvas":

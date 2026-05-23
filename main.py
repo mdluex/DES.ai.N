@@ -7,6 +7,7 @@ from PyQt5 import QtCore, QtWidgets
 from ui.main_window import DesignApp
 from core.photoshop_client import PhotoshopClient
 from core.ai_agent import DesignAgent
+from utils.templates import list_templates
 
 class BackendWorker(QtCore.QObject):
     system_message = QtCore.pyqtSignal(str)
@@ -46,7 +47,7 @@ class BackendWorker(QtCore.QObject):
         if not self.agent:
             self.ps_client.connect()
             self.agent = DesignAgent(api_url, api_key, self.ps_client, self.output_folder, self.templates_folder, self.emit_log, self.preview_ready.emit)
-            available_templates = os.listdir(self.templates_folder) if os.path.exists(self.templates_folder) else []
+            available_templates = list_templates(self.templates_folder)
             self.agent.init_session(msg, available_templates, save_psd)
         else:
             self.agent.api_url = api_url
@@ -70,7 +71,7 @@ class BackendWorker(QtCore.QObject):
             self.agent.templates_folder = self.templates_folder
             self.agent.output_folder = self.output_folder
 
-        available_templates = os.listdir(self.templates_folder) if os.path.exists(self.templates_folder) else []
+        available_templates = list_templates(self.templates_folder)
         self.agent.init_reference_session(ref_path, user_note, available_templates, save_psd)
         self.run_agent_cycle()
 

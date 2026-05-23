@@ -231,20 +231,72 @@ class PhotoshopClient:
             return f"Error closing document: {e}"
 
     def save_document(self, output_folder, filename, save_psd=False):
-        """Export PNG (and optionally PSD) WITHOUT closing the document."""
+        """Export PNG (and optionally a Photoshop source file) WITHOUT closing
+        the document.
+
+        When `save_psd` is True, the source is saved alongside the PNG:
+          - As .psd by default.
+          - As .psb when the canvas is larger than 30,000 px on any axis
+            (the PSD format's hard limit) OR when the open document was
+            originally a .psb file. PSD SaveAs would otherwise fail for
+            very large documents.
+        """
         try:
             if not self.psd:
                 return "No active document."
             self._ensure_active()
             png_path = os.path.join(output_folder, f"{filename}.png")
             self.export_preview(png_path)
+
+            source_path = None
             if save_psd:
-                psd_path = os.path.join(output_folder, f"{filename}.psd")
-                self.psd.SaveAs(psd_path)
-            return f"Saved as {filename}.png (document still open for further edits)."
+                source_path = self._save_psd_or_psb(output_folder, filename)
+
+            tail = f" Source: {os.path.basename(source_path)}." if source_path else ""
+            return (f"Saved as {filename}.png (document still open for further edits)."
+                    f"{tail}")
         except Exception as e:
             self.log(f"[ERROR] Failed to save: {e}")
             return f"Error saving: {e}"
+
+    def _save_psd_or_psb(self, output_folder, filename):
+        """Save the active document as .psd, falling back to .psb when needed.
+
+        Returns the path of the file that was actually written, or None on
+        failure. Choice of extension is automatic — callers don't need to
+        care about Photoshop's PSD size limits.
+        """
+        try:
+            cw, ch = self._get_canvas_size()
+        except Exception:
+            cw, ch = 0, 0
+
+        # Heuristics: if either dimension exceeds the PSD limit (30000 px) or
+        # the file was originally a .psb, prefer .psb. Otherwise try .psd.
+        force_psb = (cw > 30000 or ch > 30000) or (
+            self._doc_name and self._doc_name.lower().endswith(".psb")
+        )
+
+        if force_psb:
+            target_ext = ".psb"
+            fallback_ext = ".psd"
+        else:
+            target_ext = ".psd"
+            fallback_ext = ".psb"
+
+        for ext in (target_ext, fallback_ext):
+            path = os.path.join(output_folder, f"{filename}{ext}")
+            try:
+                self.psd.SaveAs(path)
+                if ext == ".psb":
+                    self.log(f"[INFO] Saved large document as .psb: {path}")
+                return path
+            except Exception as e:
+                self.log(
+                    f"[WARN] SaveAs failed for {ext} ({e}); trying {fallback_ext}..."
+                )
+        self.log("[ERROR] Could not save source document in either PSD or PSB format.")
+        return None
 
     # ── Layer: Image ─────────────────────────────────────────────────
 

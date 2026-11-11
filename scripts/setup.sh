@@ -32,8 +32,8 @@ python -m pytest -q
 
 echo ""
 echo "Setup complete."
-echo "  MCP server:  desain-mcp"
-echo "  Or:          python -m desain.mcp.server"
 echo "  Desktop UI:  python main.py"
-echo "  UXP plugin:  load uxp-plugin/ via Adobe UXP Developer Tool"
-echo "  Docs:        docs/architecture.md"
+echo "  Local LLM:   start LM Studio / Ollama / llama.cpp first"
+echo "  UXP plugin:  load uxp-plugin/ via Adobe UXP Developer Tool (macOS / cross-platform)"
+echo "  Optional MCP: desain-mcp"
+echo "  Docs:        docs/setup.md"

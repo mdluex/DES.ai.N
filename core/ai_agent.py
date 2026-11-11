@@ -28,26 +28,52 @@ class DesignAgent:
 
     # ── LLM helpers ──────────────────────────────────────────────────
 
-    def _get_client(self):
-        api_key = self.api_key
-        if not api_key:
-            try:
-                from desain.config import get_settings
+    def _get_runtime(self):
+        if getattr(self, "_runtime", None) is not None:
+            # Keep endpoint URL/key in sync with Settings tab changes.
+            if self._runtime.preferred_base_url != self.api_url or self._runtime.api_key != (self.api_key or "EMPTY"):
+                self._runtime = None
+        if getattr(self, "_runtime", None) is None:
+            from desain.config import get_settings
+            from desain.llm import create_local_runtime
 
-                api_key = get_settings().llm_api_key
-            except Exception:
-                api_key = ""
-        return OpenAI(base_url=self.api_url, api_key=api_key or "EMPTY")
+            settings = get_settings()
+            self._runtime = create_local_runtime(
+                settings,
+                base_url=self.api_url or settings.llm_base_url,
+                api_key=self.api_key or settings.llm_api_key or "EMPTY",
+                log=self.log,
+            )
+            try:
+                self._runtime.connect()
+            except Exception as e:
+                self.log(f"[SYSTEM] Local model connect warning: {e}")
+        return self._runtime
+
+    def _get_client(self):
+        runtime = self._get_runtime()
+        try:
+            return runtime.ensure_client()
+        except Exception:
+            api_key = self.api_key or "EMPTY"
+            return OpenAI(base_url=self.api_url, api_key=api_key)
 
     def get_model(self):
+        runtime = self._get_runtime()
+        if runtime.model_id and runtime.model_id != "local-model":
+            return runtime.model_id
         try:
             client = self._get_client()
             models = client.models.list()
             if models.data:
-                return models.data[0].id
+                runtime.model_id = models.data[0].id
+                from desain.local_llm.capabilities import profile_model
+
+                runtime.profile = profile_model(runtime.model_id)
+                return runtime.model_id
         except Exception as e:
-            self.log(f"[SYSTEM] Could not fetch models from LM Studio: {e}")
-        return "local-model"
+            self.log(f"[SYSTEM] Could not list local models: {e}")
+        return runtime.model_id or "local-model"
 
     # ── Tool definitions ─────────────────────────────────────────────
 
@@ -437,333 +463,349 @@ class DesignAgent:
                     self.edit_log.append(f"[QA FIX] set_layer_properties index={args.get('index',0)} text={args.get('text')} font_size={args.get('font_size')}")
         self.log("[SYSTEM] QA loop exhausted max iterations.")
 
+    def _dispatch_tool(self, fname, args):
+        """Execute one Photoshop tool and return (result_str, should_stop)."""
+        result = "Error executing tool"
+        should_stop = False
+
+        if fname == "open_template":
+            requested = args.get("filename", "")
+            resolved = resolve_template_path(self.templates_folder, requested)
+            if not resolved:
+                available = list_templates(self.templates_folder)
+                result = (
+                    f"Error: template '{requested}' not found. "
+                    f"Supported formats are .psd and .psb. "
+                    f"Available templates: {available or '(none)'}"
+                )
+            else:
+                filename = os.path.basename(resolved)
+                result = self.ps_client.open_document(resolved)
+                if result.startswith("Document opened"):
+                    ext = os.path.splitext(filename)[1].lower()
+                    if ext == ".psb":
+                        result += " (Large-document .psb format detected.)"
+                    ctx = self.ps_client.get_layer_context()
+                    if filename not in self.template_cache:
+                        _, b64 = self._capture_temp_preview()
+                        if b64:
+                            self.template_cache[filename] = self.analyze_template(b64, ctx)
+                        else:
+                            self.template_cache[filename] = "Visual analysis unavailable."
+                    analysis = self.template_cache[filename]
+                    layer_map = self._format_layer_map(ctx)
+                    result += (
+                        f"\n\n--- Deep Visual Breakdown ---\n{analysis}"
+                        f"\n\n--- {layer_map}"
+                    )
+
+        elif fname == "create_canvas":
+            result = self.ps_client.create_canvas(
+                args.get("width", 1080),
+                args.get("height", 1080),
+                args.get("filename", "scratch_design"),
+            )
+
+        elif fname == "save_document":
+            out_name = args.get("filename", "saved_design")
+            result = self.ps_client.save_document(self.output_folder, out_name, self.save_psd)
+            if self.preview_callback:
+                self.preview_callback(os.path.join(self.output_folder, f"{out_name}.png"))
+
+        elif fname == "close_document":
+            result = self.ps_client.close_document()
+            self.edit_log.clear()
+
+        elif fname == "add_image_layer":
+            keyword = args.get("keyword", "abstract")
+            img_path = get_image_from_unsplash(keyword, self.output_folder, self.log)
+            if img_path:
+                result = self.ps_client.add_image_layer(
+                    img_path, args.get("blend_mode", 1), args.get("opacity", 100)
+                )
+                try:
+                    os.remove(img_path)
+                except Exception:
+                    pass
+            else:
+                result = "Error: Failed to download image from Unsplash."
+
+        elif fname == "add_solid_color_layer":
+            result = self.ps_client.add_solid_color_layer(
+                args.get("hex_color", "#000000"),
+                args.get("blend_mode", 1),
+                args.get("opacity", 100),
+            )
+
+        elif fname == "add_gradient_layer":
+            result = self.ps_client.add_gradient_layer(
+                args.get("hex_color1", "#000000"),
+                args.get("hex_color2", "#333333"),
+                args.get("angle", 90),
+                args.get("opacity", 100),
+                args.get("blend_mode", 1),
+            )
+
+        elif fname == "add_shape":
+            shape_type = args.get("shape_type", "rectangle")
+            w = args.get("width", 200)
+            h = args.get("height", 100)
+            if shape_type == "circle":
+                shape_type = "ellipse"
+                side = min(w, h)
+                w, h = side, side
+            result = self.ps_client.add_shape(
+                shape_type,
+                args.get("x", 0),
+                args.get("y", 0),
+                w,
+                h,
+                args.get("hex_color", "#FFFFFF"),
+                args.get("corner_radius", 0),
+                args.get("opacity", 100),
+                args.get("rotation", 0),
+            )
+
+        elif fname == "add_text_layer":
+            result = self.ps_client.add_text_layer(
+                args.get("content", "Text"),
+                args.get("font_size", 72),
+                args.get("hex_color", "#FFFFFF"),
+                args.get("x", 100),
+                args.get("y", 200),
+                args.get("blend_mode", 1),
+                args.get("opacity", 100),
+                args.get("font_name"),
+                args.get("alignment", "left"),
+                args.get("rotation", 0),
+                args.get("letter_spacing"),
+            )
+
+        elif fname == "set_layer_properties":
+            result = self.ps_client.set_layer_properties(
+                args.get("index", 0),
+                args.get("text"),
+                args.get("font_size"),
+                args.get("opacity"),
+                args.get("blend_mode"),
+                args.get("font_name"),
+                args.get("hex_color"),
+            )
+            edit_desc = f"set_layer_properties(index={args.get('index',0)}"
+            if args.get("text"):
+                edit_desc += f", text=\"{args['text']}\""
+            if args.get("font_size"):
+                edit_desc += f", font_size={args['font_size']}"
+            if args.get("font_name"):
+                edit_desc += f", font_name={args['font_name']}"
+            if args.get("hex_color"):
+                edit_desc += f", hex_color={args['hex_color']}"
+            edit_desc += ")"
+            self.edit_log.append(edit_desc)
+
+        elif fname == "move_layer":
+            result = self.ps_client.move_layer(
+                args.get("index", 0), args.get("delta_x", 0), args.get("delta_y", 0)
+            )
+            self.edit_log.append(
+                f"move_layer(index={args.get('index',0)}, dx={args.get('delta_x',0)}, dy={args.get('delta_y',0)})"
+            )
+
+        elif fname == "rotate_layer":
+            result = self.ps_client.rotate_layer(args.get("index", 0), args.get("angle", 0))
+
+        elif fname == "scale_layer":
+            scale = args.get("scale_percent", args.get("scale_x", args.get("scale_y", 100)))
+            sx = args.get("scale_x")
+            sy = args.get("scale_y")
+            if sx is not None and sy is not None and sx != sy:
+                scale = (sx + sy) / 2
+                self.log(
+                    f"[RULE] Non-uniform scale (x={sx}, y={sy}). "
+                    f"Forcing uniform {scale:.1f}% to preserve aspect ratio."
+                )
+            result = self.ps_client.scale_layer(args.get("index", 0), scale)
+
+        elif fname == "add_stroke":
+            result = self.ps_client.add_stroke(
+                args.get("index", 0), args.get("thickness", 2), args.get("hex_color", "#FFFFFF")
+            )
+
+        elif fname == "change_shape_color":
+            result = self.ps_client.change_shape_color(
+                args.get("index", 0), args.get("hex_color", "#FFFFFF")
+            )
+
+        elif fname == "add_pill_cta":
+            result = self.ps_client.add_pill_cta(
+                args.get("text", "Shop Now"),
+                args.get("x", 100),
+                args.get("y", 100),
+                args.get("width", 400),
+                args.get("height", 120),
+                args.get("pill_color", "#ff7a00"),
+                args.get("text_color", "#ffffff"),
+                args.get("font_size"),
+                args.get("font_name"),
+                args.get("corner_radius"),
+            )
+
+        elif fname == "reorder_layer":
+            result = self.ps_client.reorder_layer(args.get("index", 0), args.get("new_index", 0))
+
+        elif fname == "select_subject_and_mask":
+            result = self.ps_client.select_subject_and_mask(args.get("index", 0))
+
+        elif fname == "add_element_layer":
+            keyword = args.get("keyword", "object")
+            img_path = get_image_from_unsplash(keyword, self.output_folder, self.log)
+            if img_path:
+                result = self.ps_client.add_element_layer(
+                    img_path,
+                    args.get("x", 0),
+                    args.get("y", 0),
+                    args.get("width", 400),
+                    args.get("height", 400),
+                    args.get("remove_background", False),
+                    args.get("blend_mode", 1),
+                    args.get("opacity", 100),
+                    args.get("rotation", 0),
+                )
+                try:
+                    os.remove(img_path)
+                except Exception:
+                    pass
+            else:
+                result = "Error: Failed to download element image from Unsplash."
+
+        elif fname == "generate_fill":
+            result = self.ps_client.generate_fill(
+                args.get("prompt", ""),
+                args.get("x", 0),
+                args.get("y", 0),
+                args.get("width", 500),
+                args.get("height", 500),
+            )
+
+        elif fname == "get_layer_context":
+            ctx = self.ps_client.get_layer_context()
+            result = self._format_layer_map(ctx)
+
+        elif fname == "history_checkpoint":
+            result = "History checkpoint requested."
+
+        elif fname == "history_undo":
+            result = "Undo is handled by the Photoshop bridge/history stack when available."
+
+        elif fname == "finalize_design":
+            if self.ps_client.psd:
+                self._run_internal_vision_loop()
+                out_name = args.get("filename", "design_output")
+                self.ps_client.save_document(self.output_folder, out_name, self.save_psd)
+                if self.preview_callback:
+                    self.preview_callback(os.path.join(self.output_folder, f"{out_name}.png"))
+            self.edit_log.clear()
+            self.log(f"[AGENT] {args.get('message', 'Design finalized.')}")
+            return args.get("message", "Design finalized."), True
+
+        else:
+            result = f"Error: unknown tool '{fname}'"
+
+        return result, should_stop
+
+    def _self_check_before_finalize(self):
+        """Ask the model to verify document state when the profile enables it."""
+        runtime = getattr(self, "_runtime", None)
+        if runtime is None or not runtime.profile.self_check:
+            return
+        if not self.ps_client.psd:
+            return
+        try:
+            ctx = self.ps_client.get_layer_context()
+            layer_map = self._format_layer_map(ctx)
+            self.messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "SELF-CHECK against the current document before finishing:\n"
+                        f"{layer_map}\n"
+                        "If anything is off-canvas or incomplete, emit corrective actions. "
+                        "Otherwise call finalize_design."
+                    ),
+                }
+            )
+        except Exception as e:
+            self.log(f"[SYSTEM] Self-check skipped: {e}")
+
     # ── Main agent loop ──────────────────────────────────────────────
 
     def run_agent_loop(self, stop_flag=None):
-        client = self._get_client()
-        model_id = self.get_model()
+        runtime = self._get_runtime()
+        self.get_model()
         tools = self.get_tools()
+        max_turns = runtime.profile.max_tool_rounds
 
-        for turn in range(25):
-            # Check stop flag before each LLM call
+        for turn in range(max_turns):
             if stop_flag and stop_flag():
                 self.log("[SYSTEM] Task stopped by user.")
                 return False
 
             try:
-                response = client.chat.completions.create(
-                    model=model_id,
-                    messages=self.messages,
-                    tools=tools,
-                    tool_choice="auto",
-                    temperature=0.7,
-                )
-                message = response.choices[0].message
-                self.messages.append(message)
+                if turn == max_turns - 2:
+                    self._self_check_before_finalize()
 
-                # ── No tool calls – just text ────────────────────────
-                if not message.tool_calls:
-                    if message.content:
-                        self.log(f"[AGENT] {message.content}")
-                    if turn > 5:
+                result_turn = runtime.complete_turn(self.messages, tools)
+                if result_turn.error and not result_turn.tool_calls and not result_turn.assistant_text:
+                    self.log(f"[SYSTEM] Local model turn failed: {result_turn.error}")
+                    break
+
+                if result_turn.mode_used == "native" and result_turn.raw_message is not None:
+                    self.messages.append(result_turn.raw_message)
+                else:
+                    # JSON-action / text modes: keep a plain assistant message.
+                    content = result_turn.assistant_text or ""
+                    if result_turn.tool_calls:
+                        summary = ", ".join(tc.name for tc in result_turn.tool_calls)
+                        content = (content + f"\n[actions: {summary}]").strip()
+                    self.messages.append({"role": "assistant", "content": content})
+
+                if result_turn.assistant_text and not result_turn.tool_calls:
+                    self.log(f"[AGENT] {result_turn.assistant_text}")
+
+                if not result_turn.tool_calls:
+                    if result_turn.done or turn > 5:
                         break
                     continue
 
-                # ── Process tool calls ───────────────────────────────
-                for tool_call in message.tool_calls:
-                    fname = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments)
+                for idx, tool_call in enumerate(result_turn.tool_calls):
+                    fname = tool_call.name
+                    args = tool_call.arguments
                     self.log(f"[AGENT: TOOL CALL] {fname}({args})")
+                    result, should_stop = self._dispatch_tool(fname, args)
 
-                    result = "Error executing tool"
-
-                    # ─── open_template ───────────────────────────────
-                    if fname == "open_template":
-                        requested = args.get("filename", "")
-                        resolved = resolve_template_path(
-                            self.templates_folder, requested
+                    if result_turn.mode_used == "native" and result_turn.raw_message is not None:
+                        raw_calls = getattr(result_turn.raw_message, "tool_calls", None) or []
+                        tool_call_id = None
+                        if idx < len(raw_calls):
+                            tool_call_id = getattr(raw_calls[idx], "id", None)
+                        self.messages.append(
+                            {
+                                "tool_call_id": tool_call_id or f"call_{turn}_{idx}",
+                                "role": "tool",
+                                "name": fname,
+                                "content": result,
+                            }
                         )
-                        if not resolved:
-                            available = list_templates(self.templates_folder)
-                            result = (
-                                f"Error: template '{requested}' not found. "
-                                f"Supported formats are .psd and .psb. "
-                                f"Available templates: {available or '(none)'}"
-                            )
-                        else:
-                            filename = os.path.basename(resolved)
-                            result = self.ps_client.open_document(resolved)
-                            if result.startswith("Document opened"):
-                                ext = os.path.splitext(filename)[1].lower()
-                                if ext == ".psb":
-                                    result += " (Large-document .psb format detected.)"
-                                ctx = self.ps_client.get_layer_context()
-                                # Deep vision – only once per unique template
-                                if filename not in self.template_cache:
-                                    _, b64 = self._capture_temp_preview()
-                                    if b64:
-                                        self.template_cache[filename] = self.analyze_template(b64, ctx)
-                                    else:
-                                        self.template_cache[filename] = "Visual analysis unavailable."
-                                analysis = self.template_cache[filename]
-                                # Use the human-readable LAYER MAP (much easier for the LLM
-                                # to parse than a raw JSON dump of the layer tree).
-                                layer_map = self._format_layer_map(ctx)
-                                result += (
-                                    f"\n\n--- Deep Visual Breakdown ---\n{analysis}"
-                                    f"\n\n--- {layer_map}"
-                                )
-
-                    # ─── create_canvas ────────────────────────────────
-                    elif fname == "create_canvas":
-                        result = self.ps_client.create_canvas(
-                            args.get("width", 1080),
-                            args.get("height", 1080),
-                            args.get("filename", "scratch_design"),
+                    else:
+                        self.messages.append(
+                            {
+                                "role": "user",
+                                "content": f"TOOL RESULT [{fname}]: {result}",
+                            }
                         )
 
-                    # ─── save_document ────────────────────────────────
-                    elif fname == "save_document":
-                        out_name = args.get("filename", "saved_design")
-                        result = self.ps_client.save_document(
-                            self.output_folder, out_name, self.save_psd
-                        )
-                        if self.preview_callback:
-                            self.preview_callback(
-                                os.path.join(self.output_folder, f"{out_name}.png")
-                            )
-
-                    # ─── close_document ────────────────────────────────
-                    elif fname == "close_document":
-                        result = self.ps_client.close_document()
-                        self.edit_log.clear()
-
-                    # ─── add_image_layer (Unsplash) ──────────────────
-                    elif fname == "add_image_layer":
-                        keyword = args.get("keyword", "abstract")
-                        img_path = get_image_from_unsplash(
-                            keyword, self.output_folder, self.log
-                        )
-                        if img_path:
-                            result = self.ps_client.add_image_layer(
-                                img_path,
-                                args.get("blend_mode", 1),
-                                args.get("opacity", 100),
-                            )
-                            try: os.remove(img_path)
-                            except: pass
-                        else:
-                            result = "Error: Failed to download image from Unsplash."
-
-                    # ─── add_solid_color_layer ────────────────────────
-                    elif fname == "add_solid_color_layer":
-                        result = self.ps_client.add_solid_color_layer(
-                            args.get("hex_color", "#000000"),
-                            args.get("blend_mode", 1),
-                            args.get("opacity", 100),
-                        )
-
-                    # ─── add_gradient_layer ────────────────────────────
-                    elif fname == "add_gradient_layer":
-                        result = self.ps_client.add_gradient_layer(
-                            args.get("hex_color1", "#000000"),
-                            args.get("hex_color2", "#333333"),
-                            args.get("angle", 90),
-                            args.get("opacity", 100),
-                            args.get("blend_mode", 1),
-                        )
-
-                    # ─── add_shape ─────────────────────────────────────
-                    elif fname == "add_shape":
-                        shape_type = args.get("shape_type", "rectangle")
-                        w = args.get("width", 200)
-                        h = args.get("height", 100)
-                        # 'circle' is a friendly alias for 'ellipse' with equal sides
-                        if shape_type == "circle":
-                            shape_type = "ellipse"
-                            side = min(w, h)  # force square bounding box
-                            w, h = side, side
-                        result = self.ps_client.add_shape(
-                            shape_type,
-                            args.get("x", 0),
-                            args.get("y", 0),
-                            w,
-                            h,
-                            args.get("hex_color", "#FFFFFF"),
-                            args.get("corner_radius", 0),
-                            args.get("opacity", 100),
-                            args.get("rotation", 0),
-                        )
-
-                    # ─── add_text_layer ───────────────────────────────
-                    elif fname == "add_text_layer":
-                        result = self.ps_client.add_text_layer(
-                            args.get("content", "Text"),
-                            args.get("font_size", 72),
-                            args.get("hex_color", "#FFFFFF"),
-                            args.get("x", 100),
-                            args.get("y", 200),
-                            args.get("blend_mode", 1),
-                            args.get("opacity", 100),
-                            args.get("font_name"),
-                            args.get("alignment", "left"),
-                            args.get("rotation", 0),
-                            args.get("letter_spacing"),
-                        )
-
-                    # ─── set_layer_properties ─────────────────────────
-                    elif fname == "set_layer_properties":
-                        result = self.ps_client.set_layer_properties(
-                            args.get("index", 0),
-                            args.get("text"),
-                            args.get("font_size"),
-                            args.get("opacity"),
-                            args.get("blend_mode"),
-                            args.get("font_name"),
-                            args.get("hex_color"),
-                        )
-                        edit_desc = f"set_layer_properties(index={args.get('index',0)}"
-                        if args.get("text"): edit_desc += f", text=\"{args['text']}\""
-                        if args.get("font_size"): edit_desc += f", font_size={args['font_size']}"
-                        if args.get("font_name"): edit_desc += f", font_name={args['font_name']}"
-                        if args.get("hex_color"): edit_desc += f", hex_color={args['hex_color']}"
-                        edit_desc += ")"
-                        self.edit_log.append(edit_desc)
-
-                    # ─── move_layer ───────────────────────────────────
-                    elif fname == "move_layer":
-                        result = self.ps_client.move_layer(
-                            args.get("index", 0),
-                            args.get("delta_x", 0),
-                            args.get("delta_y", 0),
-                        )
-                        self.edit_log.append(f"move_layer(index={args.get('index',0)}, dx={args.get('delta_x',0)}, dy={args.get('delta_y',0)})")
-
-                    # ─── rotate_layer ─────────────────────────────────
-                    elif fname == "rotate_layer":
-                        result = self.ps_client.rotate_layer(
-                            args.get("index", 0),
-                            args.get("angle", 0),
-                        )
-
-                    # ─── scale_layer ──────────────────────────────────
-                    elif fname == "scale_layer":
-                        # Enforce uniform scaling to always preserve aspect ratio.
-                        scale = args.get("scale_percent",
-                                         args.get("scale_x",
-                                         args.get("scale_y", 100)))
-                        sx = args.get("scale_x")
-                        sy = args.get("scale_y")
-                        if sx is not None and sy is not None and sx != sy:
-                            scale = (sx + sy) / 2
-                            self.log(
-                                f"[RULE] Non-uniform scale (x={sx}, y={sy}). "
-                                f"Forcing uniform {scale:.1f}% to preserve aspect ratio."
-                            )
-                        result = self.ps_client.scale_layer(
-                            args.get("index", 0),
-                            scale,
-                        )
-                    # ─── add_stroke ───────────────────────────────────
-                    elif fname == "add_stroke":
-                        result = self.ps_client.add_stroke(
-                            args.get("index", 0),
-                            args.get("thickness", 2),
-                            args.get("hex_color", "#FFFFFF"),
-                        )
-
-                    # --- change_shape_color ----------------------------------
-                    elif fname == "change_shape_color":
-                        result = self.ps_client.change_shape_color(
-                            args.get("index", 0),
-                            args.get("hex_color", "#FFFFFF"),
-                        )
-
-                    # ─── add_pill_cta (combo shape + centered text) ───
-                    elif fname == "add_pill_cta":
-                        result = self.ps_client.add_pill_cta(
-                            args.get("text", "Shop Now"),
-                            args.get("x", 100),
-                            args.get("y", 100),
-                            args.get("width", 400),
-                            args.get("height", 120),
-                            args.get("pill_color", "#ff7a00"),
-                            args.get("text_color", "#ffffff"),
-                            args.get("font_size"),
-                            args.get("font_name"),
-                            args.get("corner_radius"),
-                        )
-
-                    # ─── reorder_layer ────────────────────────────────
-                    elif fname == "reorder_layer":
-                        result = self.ps_client.reorder_layer(
-                            args.get("index", 0),
-                            args.get("new_index", 0),
-                        )
-
-                    # ─── select_subject_and_mask ──────────────────────
-                    elif fname == "select_subject_and_mask":
-                        result = self.ps_client.select_subject_and_mask(
-                            args.get("index", 0),
-                        )
-
-                    # ─── add_element_layer (Unsplash element) ─────────
-                    elif fname == "add_element_layer":
-                        keyword = args.get("keyword", "object")
-                        img_path = get_image_from_unsplash(
-                            keyword, self.output_folder, self.log
-                        )
-                        if img_path:
-                            result = self.ps_client.add_element_layer(
-                                img_path,
-                                args.get("x", 0),
-                                args.get("y", 0),
-                                args.get("width", 400),
-                                args.get("height", 400),
-                                args.get("remove_background", False),
-                                args.get("blend_mode", 1),
-                                args.get("opacity", 100),
-                                args.get("rotation", 0),
-                            )
-                            try: os.remove(img_path)
-                            except: pass
-                        else:
-                            result = "Error: Failed to download element image from Unsplash."
-
-                    # ─── generate_fill (AI generative content) ────────
-                    elif fname == "generate_fill":
-                        result = self.ps_client.generate_fill(
-                            args.get("prompt", ""),
-                            args.get("x", 0),
-                            args.get("y", 0),
-                            args.get("width", 500),
-                            args.get("height", 500),
-                        )
-
-                    # ─── finalize_design ──────────────────────────────
-                    elif fname == "finalize_design":
-                        if self.ps_client.psd:
-                            self._run_internal_vision_loop()
-                            # Auto-save on finalize
-                            out_name = args.get("filename", "design_output")
-                            self.ps_client.save_document(
-                                self.output_folder, out_name, self.save_psd
-                            )
-                            if self.preview_callback:
-                                self.preview_callback(
-                                    os.path.join(self.output_folder, f"{out_name}.png")
-                                )
-                        self.edit_log.clear()
-                        self.log(f"[AGENT] {args.get('message', 'Design finalized.')}")
+                    if should_stop:
                         return True
-
-                    # Push result back into conversation
-                    self.messages.append({
-                        "tool_call_id": tool_call.id,
-                        "role": "tool",
-                        "name": fname,
-                        "content": result,
-                    })
 
             except Exception as e:
                 self.log(f"[SYSTEM] Agent execution failed: {e}")
@@ -771,6 +813,7 @@ class DesignAgent:
 
         return True
 
+    # ── Reference Image Recreation
     # ── Reference Image Recreation ────────────────────────────────────
 
     def _get_image_dimensions(self, image_path):

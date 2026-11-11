@@ -76,10 +76,10 @@ def create_server(settings: Settings | None = None) -> MCPServer:
     mcp = MCPServer(
         "desain",
         instructions=(
-            "DES.ai.N controls Adobe Photoshop for design automation. "
-            "Prefer inspecting layer context before edits. Mutating tools create "
-            "history checkpoints when enabled. Use list_templates / open_template "
-            "for PSD/PSB libraries, or create_canvas for new work."
+            "Optional MCP interface for DES.ai.N. The primary product is the desktop "
+            "app with a local-model agent. Prefer inspecting layer context before edits. "
+            "Mutating tools create history checkpoints when enabled. Use list_templates / "
+            "open_template for PSD/PSB libraries, or create_canvas for new work."
         ),
         lifespan=lifespan,
     )

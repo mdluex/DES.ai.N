@@ -131,16 +131,16 @@ class Ui_Dialog(object):
 
         self.baseUrlEdit = QtWidgets.QLineEdit(self.apiGroupBox)
         self.baseUrlEdit.setObjectName("baseUrlEdit")
-        self.baseUrlEdit.setText("http://localhost:1234/v1")
-        self.baseUrlEdit.setPlaceholderText("OpenAI-compatible base URL")
-        self.formLayout.addRow("LLM Base URL:", self.baseUrlEdit)
+        self.baseUrlEdit.setText("http://127.0.0.1:1234/v1")
+        self.baseUrlEdit.setPlaceholderText("LM Studio / Ollama / llama.cpp OpenAI-compatible URL")
+        self.formLayout.addRow("Local LLM Base URL:", self.baseUrlEdit)
 
         self.apiKeyEdit = QtWidgets.QLineEdit(self.apiGroupBox)
         self.apiKeyEdit.setObjectName("apiKeyEdit")
         self.apiKeyEdit.setText("")
-        self.apiKeyEdit.setPlaceholderText("Set via Settings or DESAIN_LLM_API_KEY")
+        self.apiKeyEdit.setPlaceholderText("Usually empty for local servers")
         self.apiKeyEdit.setEchoMode(QtWidgets.QLineEdit.Password)
-        self.formLayout.addRow("API Key:", self.apiKeyEdit)
+        self.formLayout.addRow("API Key (optional):", self.apiKeyEdit)
         self.settingsLayout.addWidget(self.apiGroupBox)
 
         # Folders Settings

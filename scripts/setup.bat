@@ -32,7 +32,8 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo Setup complete.
-echo   MCP server:  desain-mcp
 echo   Desktop UI:  python main.py
+echo   Local LLM:   start LM Studio / Ollama / llama.cpp first
 echo   UXP plugin:  load uxp-plugin\ via Adobe UXP Developer Tool
+echo   Optional MCP: desain-mcp
 exit /b 0

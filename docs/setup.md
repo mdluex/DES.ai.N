@@ -10,35 +10,57 @@ bash scripts/setup.sh
 scripts\setup.bat
 ```
 
-This creates `.venv`, installs dependencies, copies `.env.example` → `.env`,
-creates `templates/` + `output/` + `plugins/`, and runs unit tests.
+Creates `.venv`, installs dependencies, copies `.env.example` → `.env`, creates
+`templates/` + `output/` + `plugins/`, and runs unit tests.
 
-## MCP server
+## Desktop app (primary)
+
+1. Start a local model server (LM Studio recommended).
+2. Activate the venv and launch:
 
 ```bash
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python main.py
+```
+
+On Windows you can also double-click `run.bat`.
+
+3. Connect Photoshop:
+
+### Windows COM (default on Windows)
+
+Install Photoshop with scripting/COM support. The app connects via
+`Photoshop.Application`.
+
+### UXP bridge (macOS and cross-platform)
+
+1. Start the desktop app (it listens for the bridge when `DESAIN_BRIDGE_BACKEND=uxp` or non-Windows `auto`).
+2. Open Adobe UXP Developer Tool → Add Plugin → `uxp-plugin/manifest.json` → Load.
+3. In Photoshop: **Plugins → DES.ai.N Bridge** → confirm `ws://127.0.0.1:8765` → Connect.
+
+4. Place templates in `templates/`, set folders in Settings if needed, then chat in **AI Workspace**.
+
+### Local model settings
+
+| Setting | Default |
+|---|---|
+| Provider | `local` (auto-detect) |
+| Base URL | `http://127.0.0.1:1234/v1` |
+| API key | optional for most local servers |
+
+Override with `.env` or the Settings tab.
+
+## Optional MCP integration
+
+Use this only if you want Claude Desktop, Cursor, or another MCP client to call
+DES.ai.N tools directly.
+
+```bash
 desain-mcp
 # equivalent: python -m desain.mcp.server
 ```
 
-Set `DESAIN_BRIDGE_BACKEND=mock` to exercise the server without Photoshop.
-
-## Load the UXP plugin
-
-1. Install / open **Adobe UXP Developer Tool**
-2. Add Plugin → select `uxp-plugin/manifest.json`
-3. Load the plugin into Photoshop
-4. Open **Plugins → DES.ai.N Bridge**
-5. Confirm the WebSocket URL (`ws://127.0.0.1:8765`) and click **Connect**
-
-Order: start `desain-mcp` first, then connect the panel (the panel also
-auto-reconnects).
-
-## Configure MCP clients
-
-### Claude Desktop
-
-Add to the Claude Desktop MCP config (path varies by OS):
+Example Claude Desktop snippet:
 
 ```json
 {
@@ -48,42 +70,12 @@ Add to the Claude Desktop MCP config (path varies by OS):
       "args": [],
       "env": {
         "DESAIN_BRIDGE_BACKEND": "uxp",
-        "DESAIN_BRIDGE_PORT": "8765",
-        "DESAIN_TEMPLATES_DIR": "/ABS/PATH/TO/DES.ai.N/templates",
-        "DESAIN_OUTPUT_DIR": "/ABS/PATH/TO/DES.ai.N/output"
+        "DESAIN_BRIDGE_PORT": "8765"
       }
     }
   }
 }
 ```
 
-### Cursor
-
-Add a similar server entry in Cursor MCP settings, pointing `command` at the
-virtualenv `desain-mcp` executable (or `python` + `-m desain.mcp.server`).
-
-### Other MCP clients
-
-Any client that speaks MCP stdio can launch `desain-mcp`. Streamable HTTP can be
-enabled later via the MCP SDK transport option if you deploy the server as a
-service.
-
-## Windows COM fallback
-
-```bash
-set DESAIN_BRIDGE_BACKEND=com
-desain-mcp
-```
-
-Requires Photoshop installed, `pywin32`, and a working COM registration. Prefer
-UXP when available.
-
-## Desktop UI (optional)
-
-```bash
-python main.py
-# or double-click run.bat on Windows
-```
-
-Configure LM Studio / OpenAI-compatible endpoints through the Settings tab or
-`.env` (`DESAIN_LLM_BASE_URL`, `DESAIN_LLM_API_KEY`).
+Load the UXP panel (or set `DESAIN_BRIDGE_BACKEND=com` on Windows) before issuing tool calls.
+Tool list: [tools.md](tools.md).

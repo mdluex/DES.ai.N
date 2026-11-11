@@ -1,4 +1,4 @@
-"""Environment-based configuration. Secrets are never committed."""
+"""Environment-based configuration loaded from process env / `.env`."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _env_bool(key: str, default: bool = False) -> bool:
 
 @dataclass(frozen=True)
 class Settings:
-    """Runtime settings for the MCP server and Photoshop bridge."""
+    """Runtime settings for the desktop app, local LLM, and Photoshop bridge."""
 
     bridge_backend: BridgeBackend = "auto"
     bridge_host: str = "127.0.0.1"
@@ -65,9 +65,10 @@ class Settings:
     output_dir: Path = field(default_factory=lambda: _REPO_ROOT / "output")
     plugins_dir: Path = field(default_factory=lambda: _REPO_ROOT / "plugins")
     unsplash_access_key: str = ""
-    llm_base_url: str = "http://localhost:1234/v1"
+    llm_base_url: str = "http://127.0.0.1:1234/v1"
     llm_api_key: str = ""
-    llm_provider: str = "openai_compatible"
+    llm_provider: str = "local"  # local | lmstudio | ollama | llamacpp | openai | groq | ...
+    llm_auto_detect: bool = True
     allow_destructive: bool = False
 
     @classmethod
@@ -100,9 +101,10 @@ class Settings:
             unsplash_access_key=_env("UNSPLASH_ACCESS_KEY") or _env("UNSPLASH_KEY"),
             llm_base_url=_env("DESAIN_LLM_BASE_URL")
             or _env("OPENAI_BASE_URL")
-            or "http://localhost:1234/v1",
-            llm_api_key=_env("DESAIN_LLM_API_KEY") or _env("OPENAI_API_KEY") or _env("ANTHROPIC_API_KEY"),
-            llm_provider=_env("DESAIN_LLM_PROVIDER", "openai_compatible") or "openai_compatible",
+            or "http://127.0.0.1:1234/v1",
+            llm_api_key=_env("DESAIN_LLM_API_KEY") or _env("OPENAI_API_KEY") or "",
+            llm_provider=_env("DESAIN_LLM_PROVIDER", "local") or "local",
+            llm_auto_detect=_env_bool("DESAIN_LLM_AUTO_DETECT", True),
             allow_destructive=_env_bool("DESAIN_ALLOW_DESTRUCTIVE", False),
         )
 

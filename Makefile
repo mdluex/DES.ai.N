@@ -1,4 +1,4 @@
-.PHONY: setup test lint mcp
+.PHONY: setup test lint app mcp
 
 setup:
 	bash scripts/setup.sh
@@ -8,6 +8,9 @@ test:
 
 lint:
 	ruff check desain tests utils
+
+app:
+	python main.py
 
 mcp:
 	python -m desain.mcp.server

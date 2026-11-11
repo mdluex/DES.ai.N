@@ -1,40 +1,33 @@
 # Troubleshooting
 
-## `BRIDGE_NOT_CONNECTED`
+## Local model not found
 
-The MCP server is running but no UXP plugin (or COM session) is attached.
+- Confirm LM Studio / Ollama / llama.cpp is running with an OpenAI-compatible server.
+- Check `DESAIN_LLM_BASE_URL` (default `http://127.0.0.1:1234/v1`).
+- Set `DESAIN_LLM_AUTO_DETECT=true` and watch the system log for detected endpoints.
+- The agent falls back to JSON action plans if native tool-calling fails.
 
-1. Confirm `desain-mcp` is running.
-2. In Photoshop, open **Plugins → DES.ai.N Bridge** and click **Connect**.
-3. Verify the URL matches `DESAIN_BRIDGE_HOST` / `DESAIN_BRIDGE_PORT`.
-4. Check that UXP Developer Tool loaded `uxp-plugin/manifest.json` without errors.
+## Malformed tool / JSON actions
 
-## `BRIDGE_TIMEOUT`
+Small models often wrap JSON in markdown fences or emit trailing commas. The
+local runtime repairs and retries once. If actions are still skipped, switch to a
+stronger instruct model or lower temperature in the server UI.
 
-Photoshop took longer than `DESAIN_BRIDGE_TIMEOUT_S` (default 60s). Generative
-Fill and large document opens are the usual causes — raise the timeout or retry.
+## Photoshop bridge not connected
+
+**UXP:** start the app (or `desain-mcp`), load `uxp-plugin/`, open the bridge panel, click Connect.
+
+**COM (Windows):** ensure Photoshop is installed and COM-registered; install `pywin32` in the venv.
+
+**Mock:** set `DESAIN_BRIDGE_BACKEND=mock` for UI/agent dry-runs without Photoshop.
 
 ## Unsplash failures
 
-Set `UNSPLASH_ACCESS_KEY` in `.env`. Tools also accept a local `path` to skip
-Unsplash entirely.
+Set `UNSPLASH_ACCESS_KEY` in `.env`, or pass a local image `path` to image tools.
 
-## COM backend on Windows
+## Timeouts
 
-- Photoshop must be installed and COM-registered.
-- Install `pywin32` inside the venv.
-- Set `DESAIN_BRIDGE_BACKEND=com`.
-
-## MCP client cannot start the server
-
-Use an absolute path to the venv executable. Relative paths and shell aliases
-often fail inside GUI MCP hosts.
-
-## Unit tests without Photoshop
-
-```bash
-DESAIN_BRIDGE_BACKEND=mock pytest -q
-```
+Raise `DESAIN_BRIDGE_TIMEOUT_S` for Generative Fill and large documents.
 
 ## Limitations
 

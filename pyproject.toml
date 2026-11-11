@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "desain"
-version = "0.2.0"
-description = "DES.ai.N — MCP-native Adobe Photoshop control for AI agents"
+version = "0.3.0"
+description = "DES.ai.N — desktop AI graphic designer for Adobe Photoshop powered by local LLMs"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Source-Available Non-Commercial" }

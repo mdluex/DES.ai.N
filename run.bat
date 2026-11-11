@@ -59,12 +59,18 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+"%VENV_PY%" -m pip install -e "%~dp0." --disable-pip-version-check --quiet
+if not exist "%~dp0.env" (
+    copy /Y "%~dp0.env.example" "%~dp0.env" >nul
+    echo [OK]  Created .env from .env.example
+)
 echo [OK]  Dependencies are ready.
 echo.
 
 :: ---------- 5. Make sure working folders exist ----------
 if not exist "%~dp0templates" mkdir "%~dp0templates"
 if not exist "%~dp0output"    mkdir "%~dp0output"
+if not exist "%~dp0plugins"   mkdir "%~dp0plugins"
 
 :: ---------- 6. Launch the app using the venv's Python ----------
 echo [*] Starting Des-ai-n ...

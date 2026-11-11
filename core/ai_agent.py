@@ -29,7 +29,15 @@ class DesignAgent:
     # ── LLM helpers ──────────────────────────────────────────────────
 
     def _get_client(self):
-        return OpenAI(base_url=self.api_url, api_key=self.api_key)
+        api_key = self.api_key
+        if not api_key:
+            try:
+                from desain.config import get_settings
+
+                api_key = get_settings().llm_api_key
+            except Exception:
+                api_key = ""
+        return OpenAI(base_url=self.api_url, api_key=api_key or "EMPTY")
 
     def get_model(self):
         try:

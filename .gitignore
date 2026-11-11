@@ -32,3 +32,14 @@ Thumbs.db
 # --- Local secrets (do NOT commit) ---
 .env
 .env.local
+*.pem
+*.key
+
+# --- Build / test artifacts ---
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/

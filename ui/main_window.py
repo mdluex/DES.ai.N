@@ -27,7 +27,18 @@ class DesignApp(QtWidgets.QDialog, Ui_Dialog):
 
         self.textEdit.setText(self.psd_folder)
         self.textEdit_2.setText(self.output_folder)
-        
+
+        try:
+            from desain.config import get_settings
+
+            settings = get_settings()
+            if hasattr(self, "baseUrlEdit") and settings.llm_base_url:
+                self.baseUrlEdit.setText(settings.llm_base_url)
+            if hasattr(self, "apiKeyEdit") and settings.llm_api_key:
+                self.apiKeyEdit.setText(settings.llm_api_key)
+        except Exception:
+            pass
+
         self.load_stylesheet()
         self.append_system_msg("Advanced Agentic Composition Engine initialized. Type a prompt to begin!")
 

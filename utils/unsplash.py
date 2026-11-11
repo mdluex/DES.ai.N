@@ -1,8 +1,19 @@
 import os
-import time
 import tempfile
+import time
+
 import requests
-from utils.config import UNSPLASH_KEY
+
+
+def _unsplash_key() -> str:
+    try:
+        from desain.config import get_settings
+
+        return get_settings().unsplash_access_key or ""
+    except Exception:
+        from utils.config import UNSPLASH_KEY
+
+        return UNSPLASH_KEY or ""
 
 
 def get_image_from_unsplash(keyword, output_folder, log_callback=None):
@@ -13,6 +24,12 @@ def get_image_from_unsplash(keyword, output_folder, log_callback=None):
     """
     if log_callback:
         log_callback(f"[INFO] Fetching background from Unsplash: '{keyword}'...")
+
+    access_key = _unsplash_key()
+    if not access_key:
+        if log_callback:
+            log_callback("[ERROR] UNSPLASH_ACCESS_KEY is not configured.")
+        return None
 
     # Build a list of search terms with fallbacks
     search_terms = [keyword]
@@ -26,7 +43,7 @@ def get_image_from_unsplash(keyword, output_folder, log_callback=None):
                 f"https://api.unsplash.com/photos/random"
                 f"?query={search_term}"
                 f"&orientation=landscape"
-                f"&client_id={UNSPLASH_KEY}"
+                f"&client_id={access_key}"
             )
             response = requests.get(api_url, timeout=15)
             if response.status_code == 200:
@@ -43,14 +60,14 @@ def get_image_from_unsplash(keyword, output_folder, log_callback=None):
                 # Validate we got actual image data (at least 5 KB)
                 if len(img_response.content) < 5000:
                     if log_callback:
-                        log_callback(f"[WARNING] Downloaded image too small, skipping.")
+                        log_callback("[WARNING] Downloaded image too small, skipping.")
                     continue
 
                 # Save to OS temp dir (not output folder) to avoid file-lock issues
                 safe_keyword = "".join(c for c in search_term if c.isalnum())
                 image_path = os.path.join(
                     tempfile.gettempdir(),
-                    f"unsplash_{safe_keyword}_{int(time.time())}.jpg"
+                    f"unsplash_{safe_keyword}_{int(time.time())}.jpg",
                 )
                 with open(image_path, "wb") as f:
                     f.write(img_response.content)

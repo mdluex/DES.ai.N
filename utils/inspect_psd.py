@@ -15,9 +15,9 @@ Output:
     Prints a human-readable summary to stdout AND writes a JSON file next to
     the source PSD/PSB with the same basename + ".inspect.json".
 """
+import json
 import os
 import sys
-import json
 import time
 
 # Force UTF-8 stdout so Arabic text and Unicode glyphs print without crashing.
@@ -188,13 +188,13 @@ def inspect_psd(path: str) -> dict:
     print(f"Shape layers  : {len(report['shape_layers'])}")
     print(f"Image layers  : {len(report['image_layers'])}")
     print(f"Groups        : {len(report['groups'])}")
-    print(f"\nFonts used:")
+    print("\nFonts used:")
     for f in report["fonts_used"]:
         print(f"   - {f}")
-    print(f"\nColor palette (from text):")
+    print("\nColor palette (from text):")
     for c in report["color_palette"]:
         print(f"   - {c}")
-    print(f"\nText content:")
+    print("\nText content:")
     for t in report["text_layers"]:
         b = t.get("bounds") or {}
         print(

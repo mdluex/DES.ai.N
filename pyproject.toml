@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desain"
+version = "0.2.0"
+description = "DES.ai.N — MCP-native Adobe Photoshop control for AI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Source-Available Non-Commercial" }
+authors = [{ name = "Mahmoud (mdluex)" }]
+dependencies = [
+  "mcp>=1.0",
+  "pydantic>=2.0",
+  "websockets>=12.0",
+  "python-dotenv>=1.0",
+  "openai>=1.0",
+  "requests>=2.28",
+]
+
+[project.optional-dependencies]
+ui = ["PyQt5>=5.15"]
+windows = ["pywin32>=306"]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.6",
+  "httpx>=0.27",
+]
+all = ["desain[ui,windows,dev]"]
+
+[project.scripts]
+desain = "desain.mcp.server:main"
+desain-mcp = "desain.mcp.server:main"
+
+[tool.setuptools.packages.find]
+include = ["desain*", "core*", "utils*", "ui*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+exclude = [".venv", "uxp-plugin", "core", "ui"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"utils/inspect_psd.py" = ["B023"]
+"tests/*" = ["B018"]

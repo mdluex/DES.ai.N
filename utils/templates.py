@@ -8,8 +8,6 @@ treated as first-class templates.
 """
 
 import os
-from typing import Iterable, List, Optional
-
 
 # All extensions we consider valid Photoshop templates. Order matters when
 # resolving a bare filename (we try PSD first, then PSB).
@@ -23,7 +21,7 @@ def is_photoshop_template(filename: str) -> bool:
     return filename.lower().endswith(SUPPORTED_EXTENSIONS)
 
 
-def list_templates(folder: str) -> List[str]:
+def list_templates(folder: str) -> list[str]:
     """List Photoshop templates inside `folder`.
 
     Returns only files that end with .psd / .psb (case-insensitive), sorted
@@ -42,7 +40,7 @@ def list_templates(folder: str) -> List[str]:
     )
 
 
-def resolve_template_path(folder: str, name: str) -> Optional[str]:
+def resolve_template_path(folder: str, name: str) -> str | None:
     """Resolve a (possibly bare) template name to an absolute path.
 
     Resolution order, all case-insensitive:
